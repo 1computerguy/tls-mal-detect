@@ -9,7 +9,7 @@ import joblib
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.svm import SVC, OneClassSVM
-from sklearn.metrics import classification_report, confusion_matrix, f1_score
+from sklearn.metrics import classification_report, confusion_matrix, f1_score, fbeta_score
 from features import calculate_pca, random_forest
 
 def svm_analysis(data, label, mal_percent=100.0, save_model=False, load_model=False, model_type='svm', feature_reduction='pca', iterations=1, graph=None, d_format='digit'):
@@ -57,13 +57,13 @@ def svm_analysis(data, label, mal_percent=100.0, save_model=False, load_model=Fa
                     'C': [0.1, 1, 10, 100]
                 }
             ]
-            svclassifier = SVC(probability=True)
-            cross_validate = GridSearchCV(svclassifier, param, cv=10, n_jobs=5, verbose=3)
-            cross_validate.fit(feature_train, label_train)
-            #svclassifier.fit(feature_train, label_train)
-            #predict = svclassifier.predict(feature_test)
-            predict = cross_validate.predict(feature_test)
-            score = f1_score(label_test, predict, pos_label=1)
+            svclassifier = SVC(kernel='linear', C=10, probability=True)
+            #cross_validate = GridSearchCV(svclassifier, param, cv=10, n_jobs=5, verbose=3)
+            #cross_validate.fit(feature_train, label_train)
+            svclassifier.fit(feature_train, label_train)
+            predict = svclassifier.predict(feature_test)
+            #predict = cross_validate.predict(feature_test)
+            score = fbeta_score(label_test, predict, beta=2.0)
 
         elif model_type == 'one':
             # Set SVM hyperparameters in list for cross validation analysis
