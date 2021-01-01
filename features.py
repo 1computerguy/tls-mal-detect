@@ -141,7 +141,7 @@ def calculate_pca (data, label, components=10, graph=None):
         sns.pairplot(final_pca_dataframe, kind='scatter', hue=label, markers=['o', 's'], palette='Set2')
         plt.show()
 
-    return pd.DataFrame(std_data, columns=data.columns)
+    return pd.DataFrame(final_pca_dataframe)
 
 def random_forest(data, label, estimators, graph=None):
     '''
@@ -250,8 +250,8 @@ def autoencoded_features (data, label, final_features, graph=None):
     autoencoder.summary()
     
     autoencoder.compile(metrics=['accuracy'], loss='mean_squared_error', optimizer='adam')
-    write_model = ModelCheckpoint(filepath=r'C:\Users\bryan\Desktop\ae_dadta\model\ae_calssifier.h5', save_best_only=True, verbose=0)
-    write_logs = TensorBoard(log_dir=r'C:\Users\bryan\Desktop\ae_dadta\logs', histogram_freq=0, write_graph=True, write_images=True)
+    write_model = ModelCheckpoint(filepath=r'C:\Users\bryan\Desktop\ae_data\model\ae_calssifier.h5', save_best_only=True, verbose=0)
+    write_logs = TensorBoard(log_dir=r'C:\Users\bryan\Desktop\ae_data\logs', histogram_freq=0, write_graph=True, write_images=True)
     history = autoencoder.fit(x_train_0_x_rescaled, x_train_0_x_rescaled,
                             epochs=learning_epochs,
                             batch_size=batch_size,
