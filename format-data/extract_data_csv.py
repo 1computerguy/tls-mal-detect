@@ -143,6 +143,7 @@ def correlate_data(csv_filename, tls_server_list, malware_label, API_KEY, out_di
     for tls_server_data in tls_server_list:
         if tls_server_data['SrcIP'] == tls_client_entry['DstIP'] and tls_server_data['DstIP'] == tls_client_entry['SrcIP'] and tls_server_data['DstPort'] == tls_client_entry['SrcPort'] and tls_server_data['SrcPort'] == tls_client_entry['DstPort']:
             tls_server_entry = tls_server_data
+            # Drop entries from list for search efficiency and to reduce invalid duplicates
             tls_server_list.remove(tls_server_entry)
             ip_domain_value = "{}:{}".format(tls_client_entry['DstIP'], tls_client_entry['SNI'])
             break
