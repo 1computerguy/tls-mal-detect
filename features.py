@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import pingouin as pg
+import matplotlib.patches as mpatches
 
 from scipy.stats import bartlett, levene
 from tensorflow.keras.layers import Input, Dense
@@ -19,6 +20,7 @@ from sklearn.metrics import confusion_matrix, precision_recall_curve, auc, roc_c
 from numpy.random import seed
 from sklearn.ensemble import RandomForestClassifier
 
+
 def malware_distribution(data, label):
     '''
     Generate a bar chart showing malware to benign data ratio
@@ -29,7 +31,7 @@ def malware_distribution(data, label):
     total = len(data)
     # Define graph area and title
     plt.figure(figsize = (6, 6))
-    plt.title("{} Dataset Percentage".format(label))
+    plt.title("Malware Dataset Distribution")
 
     # Generate count plot and turn into bar graph for display
     ax = sns.countplot(target)
@@ -114,7 +116,7 @@ def mal_ben_hist (data, label, graph_set, benign_percent):
     plt.show()
 
 
-def calculate_pca (data, label, components=10, graph=None):
+def calculate_pca (data, label, components=10, fit=False, graph=None):
     '''
     Used to generate a desired number of "Principle Components" from the input data and return the calculated
     output components as a pandas dataframe
@@ -128,10 +130,13 @@ def calculate_pca (data, label, components=10, graph=None):
     std_data = MinMaxScaler().fit_transform(data_vals)
 
     # Calculate the 10 most important components
-    pca = PCA(n_components = components)
-    data_pca_vals = pca.fit_transform(std_data)
-    pca_dataframe = pd.DataFrame(data = data_pca_vals)
-    final_pca_dataframe = pd.concat([pca_dataframe, data[[label]]], axis=1)
+    #pca = PCA(n_components = components)
+    if fit:
+        data_pca_vals = PCA().fit(std_data.data)
+    else:
+        data_pca_vals = PCA().fit_transform(std_data)
+    #pca_dataframe = pd.DataFrame(data = data_pca_vals)
+    #final_pca_dataframe = pd.concat([pca_dataframe, data[[label]]], axis=1)
 
     if graph == 'heatmap':
         correlation = final_pca_dataframe.corr()
@@ -140,8 +145,22 @@ def calculate_pca (data, label, components=10, graph=None):
     elif graph == 'pairplot':
         sns.pairplot(final_pca_dataframe, kind='scatter', hue=label, markers=['o', 's'], palette='Set2')
         plt.show()
+    elif graph == 'scatter':
+        colors = {'0': 'darkblue', '1': 'darkorange'}
+        plt.scatter(data_pca_vals[:, 0], data_pca_vals[:, 1],
+                    c=pd.Series(data['malware_label']).astype(str).map(colors), edgecolor='none',
+                    alpha=0.5, cmap='viridis')
+        m = mpatches.Patch(color='darkblue', label='Benign')
+        b = mpatches.Patch(color='darkorange', label='Malware')
+        plt.legend(handles=[m, b])
+        plt.show()
+    elif graph == 'comp_curve':
+        plt.plot(np.cumsum(data_pca_vals.explained_variance_ratio_))
+        plt.xlabel('number of componsents')
+        plt.ylabel('cumulative explained variance')
+        plt.show()
 
-    return pd.DataFrame(final_pca_dataframe)
+    #return pd.DataFrame(final_pca_dataframe)
 
 def random_forest(data, label, estimators, graph=None):
     '''
@@ -343,13 +362,18 @@ def factor_analysis(data, label, eq_var=True):
         except Exception as e:
             pass
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
     #def load_input (csv_data_file):
-    csv_data_file = 'test_train_data-all.csv'
-    dataset = pd.read_csv(csv_data_file)
+csv_data_file = r'test-train-data\test\test_train_data-all.csv'
+csv_data_file_new = r'test-train-data\validate\validate_data_new-all.csv'
+dataset = pd.read_csv(csv_data_file)
+new_dataset = pd.read_csv(csv_data_file_new)
+
+full_data = pd.concat([dataset, new_dataset], axis=0)
+full_data = full_data.reset_index()
     # Remove columns filled with all 0 value (these will be statistically insignifant and will cause
     # issues when using correlation methods of analysis)
-    data_no_z_cols = dataset.loc[:, (dataset != 0).any(axis=0)]
+data_no_z_cols = dataset.loc[:, (dataset != 0).any(axis=0)]
 
     # NOTE TO SELF
     # To import as module for testing:

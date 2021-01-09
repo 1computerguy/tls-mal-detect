@@ -143,6 +143,7 @@ def correlate_data(csv_filename, tls_server_list, malware_label, API_KEY, out_di
     for tls_server_data in tls_server_list:
         if tls_server_data['SrcIP'] == tls_client_entry['DstIP'] and tls_server_data['DstIP'] == tls_client_entry['SrcIP'] and tls_server_data['DstPort'] == tls_client_entry['SrcPort'] and tls_server_data['SrcPort'] == tls_client_entry['DstPort']:
             tls_server_entry = tls_server_data
+            tls_server_list.remove(tls_server_entry)
             ip_domain_value = "{}:{}".format(tls_client_entry['DstIP'], tls_client_entry['SNI'])
             break
     
@@ -245,13 +246,13 @@ def correlate_data(csv_filename, tls_server_list, malware_label, API_KEY, out_di
 
             grp_entry = "grp_{}".format(grp_val)
 
-            if grp_val in test_train_data:
+            if grp_entry in test_train_data:
                 test_train_data[grp_entry] = 0.5
             else:
                 grp_entry = 'grp_grease'
                 test_train_data[grp_entry] += 0.5
 
-            if grp_val == svr_selected_group:
+            if grp_entry == svr_selected_group:
                 test_train_data[grp_entry] += 0.5
 
         # Supported Points
@@ -305,7 +306,7 @@ def main():
     options = parser.parse_args()
 
     base_log_dir = os.getcwd()
-    out_dir = r'C:\Users\bryan\Desktop'
+    out_dir = r'/home/dpadmin'
     csv_filename = os.path.join(out_dir, options.out_file)
     tls_client_file = os.path.join(base_log_dir, options.client_file)
     tls_server_file = os.path.join(base_log_dir, options.server_file)
