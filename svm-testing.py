@@ -22,22 +22,34 @@ from tensorflow.keras import regularizers
 from tensorflow.random import set_seed
 from numpy.random import seed
 
-def create_graph(x_data, y_data, graph, model=None):
+def create_graph(x_data, y_data, graph, model=None, ae=False, label_data=None):
     '''
     Graph an ML model's training or analysis output to visualize its efficacy and functionality
     '''
     # Generate confusion matrix for output data
     if graph == 'confusion':
-        conf_matrix = confusion_matrix(y_data, x_data)
-        
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(conf_matrix,
-                    xticklabels=['Benign', 'Malware'],
-                    yticklabels=['Benign', 'Malware'],
-                    annot=True, fmt='d')
-        plt.title('Confusion Matrix')
-        plt.ylabel('True class')
-        plt.xlabel('Predicted class')
+        if ae:
+            pred_x = [1 if e > y_data else 0 for e in x_data['Loss_mae'].values]
+            conf_matrix = confusion_matrix(label_data, pred_x)
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(conf_matrix,
+                        xticklabels=['Benign', 'Malware'],
+                        yticklabels=['Benign', 'Malware'],
+                        annot=True, fmt='d')
+            plt.title('Confusion Matrix')
+            plt.ylabel('True class')
+            plt.xlabel('Predicted class')
+        else:
+            conf_matrix = confusion_matrix(y_data, x_data)
+            
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(conf_matrix,
+                        xticklabels=['Benign', 'Malware'],
+                        yticklabels=['Benign', 'Malware'],
+                        annot=True, fmt='d')
+            plt.title('Confusion Matrix')
+            plt.ylabel('True class')
+            plt.xlabel('Predicted class')
     # Create an SVM margin graph to visualize the Maximal Margin
     elif graph == 'margin':
         x_data = np.array(x_data)
@@ -124,7 +136,7 @@ def save_model(model, filename, ae=False):
     '''
     Save a model to disk for later analysis
     '''
-    model_output_path = os.path.split(os.path.abspath(filename))
+    model_output_path = os.path.split(os.path.abspath(filename))[0]
     if not os.path.exists(model_output_path):
         os.mkdir(model_output_path)
 
@@ -239,7 +251,7 @@ def oc_svm(data, mal_percent, test_percent, scores=False, graph=None):
     if graph:
         create_graph(oc_pred, oc_test_label, graph, svclassifier)
 
-def ae(data, train=False, scores=False, save=False, load=False, graph=None):
+def ae(data, scores=False, save=False, load=False, graph=None):
     '''
     Use an Autoencoder Neural Network to classify malware and benign TLS traffic based
     on metadata gathered during the client/server handshake.
@@ -252,11 +264,23 @@ def ae(data, train=False, scores=False, save=False, load=False, graph=None):
     set_seed(2)
     act_func = 'elu'
     model_file = r'trained-model\ae_classifier.h5'
+    save_file = r'C:\Users\bryan\Desktop\ae_classifier.h5'
 
     label_data = data.malware_label
 
     if load:
+        data = data.drop(label, axis=1)
+
         model = import_model(model_file, True)
+        predictions = model.predict(np.array(data))
+        predictions = pd.DataFrame(predictions, columns=data.columns)
+        predictions.index = data.index
+        
+        threshold = AE_threshold(data, predictions, extreme)
+        scored = pd.DataFrame(index=data.index)
+        scored['Loss_mae'] = np.mean(np.abs(predictions-data), axis=1)
+        scored['Threshold'] = threshold
+        scored['Anomaly'] = scored['Loss_mae'] > scored['Threshold']
     else:
         x_train = data[data.malware_label == 0]
         x_train = x_train.drop(label, axis=1)
@@ -299,9 +323,8 @@ def ae(data, train=False, scores=False, save=False, load=False, graph=None):
                         verbose = 0)
 
         if save:
-            save_model(history, model_file, True)
+            save_model(model, save_file, True)
 
-    if train:
         predictions = model.predict(np.array(x_test))
         predictions = pd.DataFrame(predictions, 
                             columns=x_test.columns)
@@ -323,15 +346,6 @@ def ae(data, train=False, scores=False, save=False, load=False, graph=None):
         scored_train['Threshold'] = threshold
         scored_train['Anomaly'] = scored_train['Loss_mae'] > scored_train['Threshold']
         scored = pd.concat([scored_train, scored]).sort_index()
-    else:
-        predictions = model.predict(np.array(data))
-        predictions = pd.DataFrame(predictions, columns=data.columns)
-        predictions.index = data.index
-        threshold = AE_threshold(data, predictions, extreme)
-        scored = pd.DataFrame(index=data.index)
-        scored['Loss_mae'] = np.mean(np.abs(predictions-data), axis=1)
-        scored['Threshold'] = threshold
-        scored['Anomaly'] = scored['Loss_mae'] > scored['Threshold']
 
     if scores:
         print('Accuracy: {}'.format(accuracy_score(label_data, scored['Anomaly'])))
@@ -340,7 +354,11 @@ def ae(data, train=False, scores=False, save=False, load=False, graph=None):
         print('F2 Score: {}'.format(fbeta_score(label_data, scored['Anomaly'], beta=2.0)))
     
     if graph == 'loss':
-        create_graph(history.history['loss'], history.history['val_loss'], graph, model)
+        create_graph(history.history['loss'], history.history['val_loss'], graph)
+    elif graph == 'scatter':
+        create_graph(scored, threshold, graph, model)
+    elif graph == 'confusion':
+        create_graph(scored, threshold, graph, ae=True, label_data=label_data)
     elif graph:
         create_graph(scored, label_data, graph, model)
 
