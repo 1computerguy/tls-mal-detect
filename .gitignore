@@ -2,3 +2,7 @@
 __pycache__/
 *.vscode
 validate_data_new-all.csv
+format-data/TLSClientHello.csv
+format-data/TLSServerHello.csv
+NetCap-output/benign/validate/TLSClientHello.csv
+NetCap-output/benign/validate/TLSServerHello.csv
