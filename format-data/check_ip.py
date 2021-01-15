@@ -83,13 +83,16 @@ def ip(api_key, ip):
             if pulses:
                 full_url_list = getValue(result['passive_dns'], ['passive_dns'])
                 if full_url_list:
-                    first_reported = datetime.strptime(full_url_list[-1]['first'], "%Y-%m-%dT%H:%M:%S+00:00")
-                    last_reported = datetime.strptime(full_url_list[0]['last'], "%Y-%m-%dT%H:%M:%S+00:00")
+                    first_reported = datetime.strptime(full_url_list[-1]['first'], "%Y-%m-%dT%H:%M:%S")
+                    last_reported = datetime.strptime(full_url_list[0]['last'], "%Y-%m-%dT%H:%M:%S")
                     report_age = int(((last_reported - first_reported).total_seconds() / 86400))
                 else:
                     report_age = 0
                 url_status = 1
 
+        except (RetryError):
+            url_status = 1
+            report_age = 0
         except Exception as e:
             logger.exception(" :  You received this error with the OTX API Data... {}".format(e))
 
@@ -210,9 +213,13 @@ def dns_tranco_check(cache_dir, domain_name, number_of_days):
             tranco_1M = set(tranco_data.list(single_day.strftime("%Y-%m-%d")).top(1000000))
             if domain_name in tranco_1M:
                 occurence_count += 1
+            else:
+                occurence_count += 0
+    except (ValueError, AttributeError):
+        occurence_count += 0
     except Exception as e:
         logging.exception("There was a problem in Tranco analysis... {}".format(e))
-        exit(1)
+        #exit(1)
   
     # Convert occurence value to float for ML analysis
     tranco_result = occurence_count / number_of_days

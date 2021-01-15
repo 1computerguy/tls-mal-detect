@@ -233,12 +233,12 @@ def correlate_data(csv_filename, tls_server_list, malware_label, API_KEY, out_di
             sig_entry = "sig_{:04x}".format(int(sig_data))
 
             if sig_entry in test_train_data:
-                test_train_data[sig_entry] = 1
+                test_train_data[sig_entry] = 0.5
             elif sig_entry == 'sig_0000':
-                test_train_data['sig_empty'] = 1
+                test_train_data['sig_empty'] = 0.5
             else:
                 test_train_data['sig_grease'] = sig_reserved_count
-                sig_reserved_count += 1
+                sig_reserved_count += 0.5
 
         # Supported Groups
         tls_client_entry['SupportedGroups'] = tls_client_entry['SupportedGroups'][1:-1].split('-')
@@ -253,7 +253,7 @@ def correlate_data(csv_filename, tls_server_list, malware_label, API_KEY, out_di
                 grp_entry = 'grp_grease'
                 test_train_data[grp_entry] += 0.5
 
-            if grp_entry == svr_selected_group:
+            if grp_val == svr_selected_group:
                 test_train_data[grp_entry] += 0.5
 
         # Supported Points
@@ -264,22 +264,21 @@ def correlate_data(csv_filename, tls_server_list, malware_label, API_KEY, out_di
 
         for pts_data in tls_client_entry['SupportedPoints']:
             pts_entry = "pts_{:02}".format(int(pts_data))
-            test_train_data[pts_entry] = 1
+            test_train_data[pts_entry] = 0.5
 
         # Server Extensions
         if tls_server_entry['Extensions'][0] == '(':
             tls_server_entry['Extensions'] = tls_server_entry['Extensions'][1:-1].split('-')
-        else:
+        elif not type(tls_server_entry['Extensions']) is list and not tls_server_entry['Extensions'][0] == '':
             tls_server_entry['Extensions'] = [tls_server_entry['Extensions'][1:]]
-
-        if tls_server_entry['Extensions'][0] == '':
+        elif tls_server_entry['Extensions'][0] == '':
             tls_server_entry['Extensions'] = ['0']
 
         for svr_ext_data in tls_server_entry['Extensions']:
             svr_ext_entry = "svr_ext_{:02}".format(int(svr_ext_data))
 
             if svr_ext_entry in test_train_data:
-                test_train_data[svr_ext_entry] = 1
+                test_train_data[svr_ext_entry] = 0.5
             else:
                 test_train_data['svr_ext_unassigned'] += 0.5
 
@@ -301,13 +300,13 @@ def main():
                         help='Name of the TLS Client Hello (TLSClientHello.csv) file created with NetCap', required=False)
     parser.add_argument('-s', '--server-file', action='store', dest='server_file', default='TLSServerHello.csv',
                         help='Name of the TLS Server Hello (TLSServerHello.csv) file created with NetCap', required=False)
-    parser.add_argument('-a', '--api-key', action='store', dest='api', default='<Enter your Alienvault OTX API Key here',
+    parser.add_argument('-a', '--api-key', action='store', dest='api', default='0f6b86cdae8180b3a9b26e32dc3224acc7f00e887d8d542de837599df8c7bc6f',
                         help='API Key value required for Alienvault OTX', required=False)
 
     options = parser.parse_args()
 
     base_log_dir = os.getcwd()
-    out_dir = r'/home/dpadmin'
+    out_dir = r'C:\Users\bryan\Desktop'
     csv_filename = os.path.join(out_dir, options.out_file)
     tls_client_file = os.path.join(base_log_dir, options.client_file)
     tls_server_file = os.path.join(base_log_dir, options.server_file)
