@@ -22,34 +22,35 @@ from tensorflow.keras import regularizers
 from tensorflow.random import set_seed
 from numpy.random import seed
 
-def create_graph(x_data, y_data, graph, model=None, ae=False, label_data=None):
+def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_data=None):
     '''
     Graph an ML model's training or analysis output to visualize its efficacy and functionality
+        - ae and label_data arguments are used to signify Autoencoder graphs
     '''
     # Generate confusion matrix for output data
     if graph == 'confusion':
         if ae:
             pred_x = [1 if e > y_data else 0 for e in x_data['Loss_mae'].values]
             conf_matrix = confusion_matrix(label_data, pred_x)
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(conf_matrix,
-                        xticklabels=['Benign', 'Malware'],
-                        yticklabels=['Benign', 'Malware'],
-                        annot=True, fmt='d')
-            plt.title('Confusion Matrix')
-            plt.ylabel('True class')
-            plt.xlabel('Predicted class')
         else:
             conf_matrix = confusion_matrix(y_data, x_data)
             
-            plt.figure(figsize=(8, 6))
+        plt.figure(figsize=(8, 6))
+
+        if occ:
             sns.heatmap(conf_matrix,
-                        xticklabels=['Benign', 'Malware'],
-                        yticklabels=['Benign', 'Malware'],
-                        annot=True, fmt='d')
-            plt.title('Confusion Matrix')
-            plt.ylabel('True class')
-            plt.xlabel('Predicted class')
+                    xticklabels=['Malware', 'Benign'],
+                    yticklabels=['Malware', 'Benign'],
+                    annot=True, fmt='d')
+        else:
+            sns.heatmap(conf_matrix,
+                    xticklabels=['Benign', 'Malware'],
+                    yticklabels=['Benign', 'Malware'],
+                    annot=True, fmt='d')
+
+        plt.title('Confusion Matrix')
+        plt.ylabel('True class')
+        plt.xlabel('Predicted class')
     # Create an SVM margin graph to visualize the Maximal Margin
     elif graph == 'margin':
         x_data = np.array(x_data)
@@ -85,7 +86,7 @@ def create_graph(x_data, y_data, graph, model=None, ae=False, label_data=None):
         plt.plot(fpr, tpr, label='ROC Curve (area = {})'.format(str(auc)), color='darkorange')
         plt.title('Receiver Operating Characteristic (ROC curve)')
         plt.legend(loc='lower right')
-    ######################
+    ###################################################
     # Below graphs are specifically for the Autoencoder
     # Graph the AE loss curve
     elif graph == 'loss':
@@ -171,7 +172,7 @@ def AE_threshold(train_dist, pred_dist, extreme=False):
     threshold = np.abs(pred_thresh - train_thresh) * k
     return threshold
 
-def svm(data, scores=False, load_model=False, graph=None, feature_reduce=False):
+def svm(data, scores=False, save=False, load=False, graph=None, feature_reduce=False):
     '''
     Use a Support Vector Machine to classify malware and benign TLS traffic based on metadata
     gathered during the client/server handshake.
@@ -179,20 +180,30 @@ def svm(data, scores=False, load_model=False, graph=None, feature_reduce=False):
     label = 'malware_label'
     tt_features = data.drop(label, axis=1)
     tt_labels = data[label]
+    load_file = r'trained-model\svm.pkl'
+    save_file = r'C:\Users\bryan\Desktop\svm.pkl'
 
     # Feature reduction to 2 components required for margin and boundary graphs
-    if feature_reduce == 'umap':
-        tt_features = umap.UMAP(n_neighbors=5, min_dist=0.01, n_components=2).fit_transform(tt_features)
-    elif feature_reduce == 'pca':
+    if feature_reduce:
         pca = PCA(n_components=2).fit_transform(tt_features)
         tt_features = pd.DataFrame(pca)
 
-    feature_train, feature_test, label_train, label_test = train_test_split(tt_features, tt_labels, test_size=0.20)
+    if load:
+        svclassifier = import_model(load_file)
+        feature_test = tt_features
+        label_test = tt_labels
 
-    # Select type of SVM to use, standard Support vector or One-class SVM
-    # Set SVM hyperparameters in list for cross validation analysis
-    svclassifier = SVC(kernel='rbf', C=100, gamma=0.1, probability=True, random_state=42)
-    svclassifier.fit(feature_train, label_train)
+    else:
+        feature_train, feature_test, label_train, label_test = train_test_split(tt_features, tt_labels, test_size=0.20)
+
+        # Select type of SVM to use, standard Support vector or One-class SVM
+        # Set SVM hyperparameters in list for cross validation analysis
+        svclassifier = SVC(kernel='rbf', C=100, gamma=0.1, probability=True, random_state=42)
+        svclassifier.fit(feature_train, label_train)
+
+        if save:
+            save_model(svclassifier, save_file)
+
     if scores:
         for val in ['accuracy', 'precision', 'recall']:
             score = cross_val_score(svclassifier, feature_train, label_train, cv=10, scoring=val).mean()
@@ -210,35 +221,58 @@ def svm(data, scores=False, load_model=False, graph=None, feature_reduce=False):
     elif graph:
         create_graph(svm_pred, label_test, graph, svclassifier)
 
-def oc_svm(data, mal_percent, test_percent, scores=False, graph=None):
+    #return svm_pred, tt_labels
+
+def oc_svm(data, mal_percent, scores=False, save=False, load=False, graph=None, feature_reduce=False):
     '''
     Use a One-Class Support Vector Machine to classify malware and benign TLS traffic based
     on metadata gathered during the client/server handshake.
     '''
     # Set nu hyperparameter and test percentage for test_train_split
-    nu_percent = mal_percent / 100
-    #gamma_val = 0.0001
+    test_percent = 0.20
+    nu_value = mal_percent / 100
+    gamma_val = 0.0001
     # Baseline gamma for rbf kernel
-    gamma_val = 0.000000001
-    test_percent = test_percent / 100
+    #gamma_val = 0.0001
     label = 'malware_label'
+    load_file = r'trained-model\oc_svm.pkl'
+    save_file = r'C:\Users\bryan\Desktop\oc_svm.pkl'
 
-    oc_benign = data[data.malware_label == 1]
+    # Feature reduction to 2 components required for margin and boundary graphs
+    if feature_reduce:
+        label_data = data.malware_label
+        feature_data = data.drop(label, axis=1)
 
-    oc_b_train, oc_b_test = train_test_split(oc_benign, test_size=test_percent, random_state=1)
-    oc_b_train = oc_b_train.drop([label], axis=1)
+        pca = PCA(n_components=2).fit_transform(feature_data)
+        data = pd.DataFrame(pca)
+        data = pd.concat([data, label_data], axis=1)
 
-    oc_malware = data[data.malware_label == -1]
+    if load:
+        svclassifier = import_model(load_file)
+        oc_test = data.drop(label, axis=1)
+        oc_test_label = data.malware_label
+    else:
+        oc_benign = data[data.malware_label == 1]
+        oc_malware = data[data.malware_label == -1]
 
-    oc_test = oc_b_test.append(oc_malware)
-    oc_test_label = oc_test.malware_label
-    oc_test = oc_test.drop([label], axis=1)
+        oc_b_train, oc_b_test = train_test_split(oc_benign, test_size=test_percent, random_state=1)
+        oc_b_train = oc_b_train.drop(label, axis=1)
 
-    svclassifier = OneClassSVM(nu=nu_percent, kernel='rbf', gamma=gamma_val)
-    svclassifier.fit(oc_b_train)
+        oc_test = oc_b_test.append(oc_malware)
+        oc_test_label = oc_test.malware_label
+        oc_test = oc_test.drop(label, axis=1)
+
+        svclassifier = OneClassSVM(nu=nu_value, kernel='rbf', gamma=gamma_val)
+        svclassifier.fit(oc_b_train)
+
+        if save:
+            save_model(svclassifier, save_file)
+
+    oc_pred = svclassifier.predict(oc_test)
+
     if scores:
         for val in ['accuracy', 'precision', 'recall']:
-            score = cross_val_score(svclassifier, oc_test, oc_test_label, cv=10, scoring=val).mean()
+            score = cross_val_score(svclassifier, oc_test, oc_test_label, cv=2, scoring=val).mean()
             print("{}: {}".format(val, score))
             if val == 'precision':
                 prec = score
@@ -246,10 +280,12 @@ def oc_svm(data, mal_percent, test_percent, scores=False, graph=None):
                 rec = score
         print("F2 Score: {}".format(f_beta(2.0, prec, rec)))
     
-    oc_pred = svclassifier.predict(oc_test)
+    if graph == 'margin' or graph == 'boundary':
+        create_graph(oc_test, oc_test_label, graph, svclassifier)
+    elif graph:
+        create_graph(oc_pred, oc_test_label, graph, svclassifier, occ=True)
 
-    if graph:
-        create_graph(oc_pred, oc_test_label, graph, svclassifier)
+    #return oc_pred, oc_test_label
 
 def ae(data, scores=False, save=False, load=False, graph=None):
     '''
@@ -263,7 +299,7 @@ def ae(data, scores=False, save=False, load=False, graph=None):
     seed(1)
     set_seed(2)
     act_func = 'elu'
-    model_file = r'trained-model\ae_classifier.h5'
+    load_file = r'trained-model\ae_classifier.h5'
     save_file = r'C:\Users\bryan\Desktop\ae_classifier.h5'
 
     label_data = data.malware_label
@@ -271,7 +307,7 @@ def ae(data, scores=False, save=False, load=False, graph=None):
     if load:
         data = data.drop(label, axis=1)
 
-        model = import_model(model_file, True)
+        model = import_model(load_file, True)
         predictions = model.predict(np.array(data))
         predictions = pd.DataFrame(predictions, columns=data.columns)
         predictions.index = data.index
