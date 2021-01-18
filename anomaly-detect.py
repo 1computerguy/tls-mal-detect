@@ -17,7 +17,7 @@ from sklearn.metrics import fbeta_score, accuracy_score, precision_score, recall
 from sklearn.metrics import mean_absolute_error
 from mlxtend.plotting import plot_decision_regions
 from tensorflow.keras.layers import Input, Dense
-from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.models import Sequential, load_model, Model
 from tensorflow.keras import regularizers
 from tensorflow.random import set_seed
 from numpy.random import seed
@@ -57,8 +57,8 @@ def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_d
 
         plt.scatter(x_data[:, 0], x_data[:, 1], c=y_data.values, s=30, cmap=plt.cm.winter, alpha=0.5)
         ax = plt.gca()
-        xlim = [-3, 3]
-        ylim = [-3, 3]
+        xlim = [-15, 15]
+        ylim = [-15, 15]
         xx = np.linspace(xlim[0], xlim[1], 30)
         yy = np.linspace(ylim[0], ylim[1], 30)
         XX, YY = np.meshgrid(yy, xx)
@@ -71,9 +71,10 @@ def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_d
     # Create a colored Margin graph
     elif graph == 'boundary':
         x_data = np.array(x_data) if isinstance(x_data, pd.DataFrame) else x_data
-        plot_decision_regions(X=x_data, y=y_data.values, clf=model, legend=2)
-        plt.xlabel("Component 1", size=14)
-        plt.ylabel("Component 2", size=14)
+        y_data = np.array(y_data).astype(np.integer)
+        plot_decision_regions(X=x_data, y=y_data, clf=model, legend=2)
+        plt.xlabel("Component 1", size=12)
+        plt.ylabel("Component 2", size=12)
     # Graph the AUC
     elif graph == 'auc':
         fpr, tpr, _ = roc_curve(y_data, x_data)
@@ -109,7 +110,7 @@ def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_d
         X_pred.index = x_data.index
 
         pred = pd.DataFrame(index=x_data.index)
-        pred['Loss_mae'] = np.mean(np.abs(X_pred-x_data), axis = 1)
+        pred['Loss_mae'] = np.mean(np.abs(X_pred - x_data), axis = 1)
         plt.figure()
         sns.distplot(pred['Loss_mae'],
                     bins = 10, 
@@ -180,33 +181,33 @@ def svm(data, scores=False, save=False, load=False, graph=None, feature_reduce=F
     label = 'malware_label'
     tt_features = data.drop(label, axis=1)
     tt_labels = data[label]
-    load_file = r'trained-model\svm.pkl'
-    save_file = r'C:\Users\bryan\Desktop\svm.pkl'
+    model_file = r'trained-model\svm.pkl'
 
     # Feature reduction to 2 components required for margin and boundary graphs
     if feature_reduce:
         pca = PCA(n_components=2).fit_transform(tt_features)
         tt_features = pd.DataFrame(pca)
 
+    # Laod model from file
     if load:
-        svclassifier = import_model(load_file)
+        svclassifier = import_model(model_file)
         feature_test = tt_features
         label_test = tt_labels
 
+    # Train model
     else:
         feature_train, feature_test, label_train, label_test = train_test_split(tt_features, tt_labels, test_size=0.20)
-
-        # Select type of SVM to use, standard Support vector or One-class SVM
-        # Set SVM hyperparameters in list for cross validation analysis
         svclassifier = SVC(kernel='rbf', C=100, gamma=0.1, probability=True, random_state=42)
         svclassifier.fit(feature_train, label_train)
 
+        # Save model to file
         if save:
-            save_model(svclassifier, save_file)
+            save_model(svclassifier, model_file)
 
+    # Perform n-fold cross validation and calculate the mean score across the cv=## folds
     if scores:
         for val in ['accuracy', 'precision', 'recall']:
-            score = cross_val_score(svclassifier, feature_train, label_train, cv=10, scoring=val).mean()
+            score = cross_val_score(svclassifier, feature_test, label_test, cv=10, scoring=val).mean()
             print("{}: {}".format(val, score))
             if val == 'precision':
                 prec = score
@@ -219,7 +220,7 @@ def svm(data, scores=False, save=False, load=False, graph=None, feature_reduce=F
     if graph == 'margin' or graph == 'boundary':
         create_graph(tt_features, tt_labels, graph, svclassifier)
     elif graph:
-        create_graph(svm_pred, label_test, graph, svclassifier)
+        create_graph(svm_pred, label_test, graph)
 
     #return svm_pred, tt_labels
 
@@ -228,29 +229,47 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, graph=None, 
     Use a One-Class Support Vector Machine to classify malware and benign TLS traffic based
     on metadata gathered during the client/server handshake.
     '''
-    # Set nu hyperparameter and test percentage for test_train_split
+    # Set nu and gamma hyperparameters and test percentage
     test_percent = 0.20
-    nu_value = mal_percent / 100
-    gamma_val = 0.0001
-    # Baseline gamma for rbf kernel
-    #gamma_val = 0.0001
+    nu_value = (mal_percent / 100) * test_percent
+    gamma_val = 0.01
     label = 'malware_label'
-    load_file = r'trained-model\oc_svm.pkl'
-    save_file = r'C:\Users\bryan\Desktop\oc_svm.pkl'
+    model_file = r'trained-model\oc_svm.pkl'
 
     # Feature reduction to 2 components required for margin and boundary graphs
-    if feature_reduce:
-        label_data = data.malware_label
-        feature_data = data.drop(label, axis=1)
+    # OC-SVM does not graph well using any of the attempted feature reduction techniques.
+    # I attempted PCA, Autoencoder, T-SNE, UMAP, Factor Analysis, Random Forest. The PCA
+    # and AE are left below merely for reference.
+    #if feature_reduce:
+        #label_data = data.malware_label
+        #feature_data = data.drop(label, axis=1)
 
-        pca = PCA(n_components=2).fit_transform(feature_data)
-        data = pd.DataFrame(pca)
-        data = pd.concat([data, label_data], axis=1)
+        #pca = PCA(n_components=2).fit_transform(feature_data)
+        #data = pd.DataFrame(pca)
+        #data = pd.concat([data, label_data], axis=1)
 
+        #ae = Sequential()
+        #ae.add(Dense(100, activation='elu',
+        #            kernel_initializer='glorot_uniform',
+        #            input_shape=(feature_data.shape[1],),
+        #            kernel_regularizer=regularizers.l2(0.0)))
+        #ae.add(Dense(2, activation='elu', name='bottleneck', kernel_initializer='glorot_uniform'))
+        #ae.add(Dense(100, activation='elu', kernel_initializer='glorot_uniform'))
+        #ae.add(Dense(feature_data.shape[1], activation='sigmoid', kernel_initializer='glorot_uniform'))
+        #ae.compile(loss='mse',optimizer='adam')
+        #ae.fit(np.array(feature_data), np.array(feature_data), batch_size=64, epochs=20, verbose=0)
+        #encoder = Model(ae.input, ae.get_layer('bottleneck').output)
+        #ae_data = encoder.predict(feature_data)
+        #data = pd.DataFrame(ae_data)
+        #data = pd.concat([data, label_data], axis=1)
+
+    # Laod model from file
     if load:
-        svclassifier = import_model(load_file)
+        svclassifier = import_model(model_file)
         oc_test = data.drop(label, axis=1)
         oc_test_label = data.malware_label
+
+    # Train model
     else:
         oc_benign = data[data.malware_label == 1]
         oc_malware = data[data.malware_label == -1]
@@ -265,75 +284,74 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, graph=None, 
         svclassifier = OneClassSVM(nu=nu_value, kernel='rbf', gamma=gamma_val)
         svclassifier.fit(oc_b_train)
 
+        # Save model to file
         if save:
-            save_model(svclassifier, save_file)
+            save_model(svclassifier, model_file)
 
-    oc_pred = svclassifier.predict(oc_test)
-
+    # Perform n-fold cross validation and calculate the mean score across the cv=## folds
     if scores:
         for val in ['accuracy', 'precision', 'recall']:
-            score = cross_val_score(svclassifier, oc_test, oc_test_label, cv=2, scoring=val).mean()
+            score = cross_val_score(svclassifier, oc_test, oc_test_label, cv=10, scoring=val).mean()
             print("{}: {}".format(val, score))
             if val == 'precision':
                 prec = score
             elif val == 'recall':
                 rec = score
         print("F2 Score: {}".format(f_beta(2.0, prec, rec)))
-    
+        
+    oc_pred = svclassifier.predict(oc_test)
+
     if graph == 'margin' or graph == 'boundary':
         create_graph(oc_test, oc_test_label, graph, svclassifier)
     elif graph:
         create_graph(oc_pred, oc_test_label, graph, svclassifier, occ=True)
-
-    #return oc_pred, oc_test_label
 
 def ae(data, scores=False, save=False, load=False, graph=None):
     '''
     Use an Autoencoder Neural Network to classify malware and benign TLS traffic based
     on metadata gathered during the client/server handshake.
     '''
-    NUM_EPOCHS=20
-    BATCH_SIZE=64
-    label = 'malware_label'
-    extreme = False
     seed(1)
     set_seed(2)
+    NUM_EPOCHS=200
+    BATCH_SIZE=32
+    label = 'malware_label'
     act_func = 'elu'
-    load_file = r'trained-model\ae_classifier.h5'
-    save_file = r'C:\Users\bryan\Desktop\ae_classifier.h5'
-
+    #model_file = r'C:\Users\bryan\Desktop\ae_classifier.h5'
+    model_file = r'trained-model\ae_classifier.h5'
     label_data = data.malware_label
 
+    # Laod model from file
     if load:
         data = data.drop(label, axis=1)
 
-        model = import_model(load_file, True)
+        model = import_model(model_file, True)
         predictions = model.predict(np.array(data))
         predictions = pd.DataFrame(predictions, columns=data.columns)
         predictions.index = data.index
         
-        threshold = AE_threshold(data, predictions, extreme)
+        # Calculate threshold and provide anomaly output predictions as a dataframe
+        threshold = AE_threshold(data, predictions)
         scored = pd.DataFrame(index=data.index)
         scored['Loss_mae'] = np.mean(np.abs(predictions-data), axis=1)
         scored['Threshold'] = threshold
         scored['Anomaly'] = scored['Loss_mae'] > scored['Threshold']
+
+    # Train model
     else:
         x_train = data[data.malware_label == 0]
         x_train = x_train.drop(label, axis=1)
-        x_train = pd.DataFrame(MinMaxScaler().fit_transform(x_train),
-                                columns=x_train.columns,
-                                index=x_train.index)
         x_test = data[data.malware_label == 1]
         x_test = x_test.drop(label, axis=1)
-        x_test = pd.DataFrame(MinMaxScaler().fit_transform(x_test),
-                                columns=x_test.columns,
-                                index=x_test.index)
+        
         begin_end_length = x_train.shape[1]
-        stage_two_length = 100
-        stage_three_length = 2
+        stage_two_length = 300
+        stage_three_length = 100
+        stage_four_length = 2
 
-        model=Sequential()
-        # First hidden layer, connected to input vector X. 
+        # Build AE network
+        model = Sequential()
+
         model.add(Dense(stage_two_length, activation=act_func,
                         kernel_initializer='glorot_uniform',
                         kernel_regularizer=regularizers.l2(0.0),
@@ -341,6 +359,10 @@ def ae(data, scores=False, save=False, load=False, graph=None):
                     )
                 )
 
+        model.add(Dense(stage_three_length , activation=act_func,
+                        kernel_initializer='glorot_uniform'))
+        model.add(Dense(stage_four_length , activation=act_func,
+                        kernel_initializer='glorot_uniform'))
         model.add(Dense(stage_three_length , activation=act_func,
                         kernel_initializer='glorot_uniform'))
 
@@ -356,18 +378,23 @@ def ae(data, scores=False, save=False, load=False, graph=None):
                         batch_size=BATCH_SIZE, 
                         epochs=NUM_EPOCHS,
                         validation_split=0.05,
-                        verbose = 0)
+                        verbose = 1)
 
+        # Save model to file
         if save:
-            save_model(model, save_file, True)
+            save_model(model, model_file, True)
 
         predictions = model.predict(np.array(x_test))
         predictions = pd.DataFrame(predictions, 
                             columns=x_test.columns)
         predictions.index = x_test.index
 
+        # Calculate scores if conducting training and validation
+        #   - First set of measurements are for benign traffic
+        #   - Second set of measurements are for predictions based on first set
+        #     and for detecting malware
         scored = pd.DataFrame(index=x_test.index)
-        threshold = AE_threshold(x_train, predictions, extreme)
+        threshold = AE_threshold(x_train, predictions, True)
         scored['Loss_mae'] = np.mean(np.abs(predictions-x_test), axis = 1)
         scored['Threshold'] = threshold
         scored['Anomaly'] = scored['Loss_mae'] > scored['Threshold']
@@ -383,6 +410,8 @@ def ae(data, scores=False, save=False, load=False, graph=None):
         scored_train['Anomaly'] = scored_train['Loss_mae'] > scored_train['Threshold']
         scored = pd.concat([scored_train, scored]).sort_index()
 
+    # Cross_val_score does not support AE model, so we calculate scores individually
+    # Did not find a suitable method of N-fold cross validation...
     if scores:
         print('Accuracy: {}'.format(accuracy_score(label_data, scored['Anomaly'])))
         print('Precision: {}'.format(precision_score(label_data, scored['Anomaly'])))
@@ -395,21 +424,22 @@ def ae(data, scores=False, save=False, load=False, graph=None):
         create_graph(scored, threshold, graph, model)
     elif graph == 'confusion':
         create_graph(scored, threshold, graph, ae=True, label_data=label_data)
+    elif graph == 'mae':
+        create_graph(x_train, label_data, graph, model)
     elif graph:
         create_graph(scored, label_data, graph, model)
 
 def get_data(sample_size, mal_percent=20, test_percent=20, occ=False):
-    csv_data_file = r'test-train-data\test\test_train_data-all.csv'
-    new_csv_data_file = r'test-train-data\validate\validate_data_new-all.csv'
+    rand_state_val = 42
+    csv_data_file = r'test-train-data\test_train_data.csv'
+    full_dataset = pd.read_csv(csv_data_file)
 
-    dataset = pd.read_csv(csv_data_file)
-    new_dataset = pd.read_csv(new_csv_data_file)
-    full_dataset = pd.concat([dataset, new_dataset], axis=0).reset_index(drop=True)
-
+    # Scale data to 0-1 value for more efficient ML analysis
     mm_data = MinMaxScaler().fit_transform(full_dataset)
     full_dataset = pd.DataFrame(mm_data, columns=full_dataset.columns)
-    full_dataset.malware_label = full_dataset.malware_label.astype(int)
 
+    # If model is OC-SVM convert label values to 1 and -1 (this is how OC-SVM
+    # outputs predictions, so validation requires these values
     if occ:
         label = 'malware_label'
         ben = 1
@@ -423,10 +453,20 @@ def get_data(sample_size, mal_percent=20, test_percent=20, occ=False):
         test_size = int((test_percent / 100) * sample_size)
         mal_size = int((mal_percent / 100) * test_size)
 
-        malware = malware.sample(n=mal_size, random_state=1)
-        benign = benign.sample(n=(sample_size - mal_size), random_state=1)
-        
+        # Prevent malware sample size from being larger than actual sample size
+        if mal_size > malware.shape[0]:
+            mal_size = malware.shape[0]
+
+        malware = malware.sample(n=mal_size, random_state=rand_state_val)
+
+        # Prevent total sample size from being larger than actual sample size
+        total_sample_size = sample_size - mal_size
+        if total_sample_size > benign.shape[0]:
+            total_sample_size = benign.shape[0]
+
+        benign = benign.sample(n=total_sample_size, random_state=rand_state_val)
         sampled_data = benign.append(malware).reset_index(drop=True)
+    # If not OC-SVM then provide desitnated testing and malware distributions
     else:
         ben = 0
         mal = 1
@@ -440,9 +480,14 @@ def get_data(sample_size, mal_percent=20, test_percent=20, occ=False):
         if mal_size > malware.shape[0]:
             mal_size = malware.shape[0]
 
-        malware = malware.sample(n=mal_size, random_state=1)
-        benign = benign.sample(n=(sample_size - mal_size), random_state=1)
-        
+        malware = malware.sample(n=mal_size, random_state=rand_state_val)
+
+        # Prevent total sample size from being larger than actual sample size
+        total_sample_size = sample_size - mal_size
+        if total_sample_size > benign.shape[0]:
+            total_sample_size = benign.shape[0]
+
+        benign = benign.sample(n=total_sample_size, random_state=rand_state_val)
         sampled_data = benign.append(malware).reset_index(drop=True)
 
     sampled_data = sampled_data.sample(frac=1).reset_index(drop=True)
