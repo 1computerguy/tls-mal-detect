@@ -33,20 +33,22 @@ def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_d
             pred_x = [1 if e > y_data else 0 for e in x_data['Loss_mae'].values]
             conf_matrix = confusion_matrix(label_data, pred_x)
         else:
+            if occ:
+                ben = 0
+                mal = 1
+                x_data[x_data == 1] = ben
+                x_data[x_data == -1] = mal
+                y_data = y_data.values
+                y_data[y_data == 1] = ben
+                y_data[y_data == -1] = mal
+
             conf_matrix = confusion_matrix(y_data, x_data)
             
         plt.figure(figsize=(8, 6))
-
-        if occ:
-            sns.heatmap(conf_matrix,
-                    xticklabels=['Malware', 'Benign'],
-                    yticklabels=['Malware', 'Benign'],
-                    annot=True, fmt='d')
-        else:
-            sns.heatmap(conf_matrix,
-                    xticklabels=['Benign', 'Malware'],
-                    yticklabels=['Benign', 'Malware'],
-                    annot=True, fmt='d')
+        sns.heatmap(conf_matrix,
+                xticklabels=['Benign', 'Malware'],
+                yticklabels=['Benign', 'Malware'],
+                annot=True, fmt='d')
 
         plt.title('Confusion Matrix')
         plt.ylabel('True class')
@@ -232,7 +234,7 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, graph=None, 
     # Set nu and gamma hyperparameters and test percentage
     test_percent = 0.20
     nu_value = (mal_percent / 100) * test_percent
-    gamma_val = 0.01
+    gamma_val = 0.1
     label = 'malware_label'
     model_file = r'trained-model\oc_svm.pkl'
 
@@ -317,7 +319,6 @@ def ae(data, scores=False, save=False, load=False, graph=None):
     BATCH_SIZE=32
     label = 'malware_label'
     act_func = 'elu'
-    #model_file = r'C:\Users\bryan\Desktop\ae_classifier.h5'
     model_file = r'trained-model\ae_classifier.h5'
     label_data = data.malware_label
 
