@@ -300,7 +300,7 @@ def main():
                         help='Name of the TLS Client Hello (TLSClientHello.csv) file created with NetCap', required=False)
     parser.add_argument('-s', '--server-file', action='store', dest='server_file', default='TLSServerHello.csv',
                         help='Name of the TLS Server Hello (TLSServerHello.csv) file created with NetCap', required=False)
-    parser.add_argument('-a', '--api-key', action='store', dest='api', default='0f6b86cdae8180b3a9b26e32dc3224acc7f00e887d8d542de837599df8c7bc6f',
+    parser.add_argument('-a', '--api-key', action='store', dest='api', default='<Add OTX API key here>',
                         help='API Key value required for Alienvault OTX', required=False)
 
     options = parser.parse_args()
