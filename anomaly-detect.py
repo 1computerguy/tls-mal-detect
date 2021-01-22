@@ -6,15 +6,15 @@ import seaborn as sns
 import numpy as np
 import joblib
 import os
-import umap
 
+from argparse import ArgumentParser, RawTextHelpFormatter
+from pathlib import Path
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.svm import SVC, OneClassSVM
-from sklearn.metrics import confusion_matrix, roc_curve, auc, precision_recall_curve, f1_score, roc_auc_score
-from sklearn.metrics import fbeta_score, accuracy_score, precision_score, recall_score, classification_report
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import confusion_matrix, roc_curve, auc, roc_auc_score
+from sklearn.metrics import fbeta_score, accuracy_score, precision_score, recall_score
 from mlxtend.plotting import plot_decision_regions
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Sequential, load_model, Model
@@ -175,7 +175,7 @@ def AE_threshold(train_dist, pred_dist, extreme=False):
     threshold = np.abs(pred_thresh - train_thresh) * k
     return threshold
 
-def svm(data, scores=False, save=False, load=False, graph=None, feature_reduce=False):
+def svm(data, scores=False, save=False, load=False, filename=Path('./trained-model/svm.pkl'), graph=None):
     '''
     Use a Support Vector Machine to classify malware and benign TLS traffic based on metadata
     gathered during the client/server handshake.
@@ -183,16 +183,15 @@ def svm(data, scores=False, save=False, load=False, graph=None, feature_reduce=F
     label = 'malware_label'
     tt_features = data.drop(label, axis=1)
     tt_labels = data[label]
-    model_file = r'trained-model\svm.pkl'
 
     # Feature reduction to 2 components required for margin and boundary graphs
-    if feature_reduce:
+    if graph == 'margin' or graph == 'boundary':
         pca = PCA(n_components=2).fit_transform(tt_features)
         tt_features = pd.DataFrame(pca)
 
     # Laod model from file
     if load:
-        svclassifier = import_model(model_file)
+        svclassifier = import_model(filename.absolute())
         feature_test = tt_features
         label_test = tt_labels
 
@@ -204,10 +203,11 @@ def svm(data, scores=False, save=False, load=False, graph=None, feature_reduce=F
 
         # Save model to file
         if save:
-            save_model(svclassifier, model_file)
+            save_model(svclassifier, filename)
 
     # Perform n-fold cross validation and calculate the mean score across the cv=## folds
     if scores:
+        print('\nCalculating SVM scores...')
         for val in ['accuracy', 'precision', 'recall']:
             score = cross_val_score(svclassifier, feature_test, label_test, cv=10, scoring=val).mean()
             print("{}: {}".format(val, score))
@@ -226,7 +226,7 @@ def svm(data, scores=False, save=False, load=False, graph=None, feature_reduce=F
 
     #return svm_pred, tt_labels
 
-def oc_svm(data, mal_percent, scores=False, save=False, load=False, graph=None, feature_reduce=False):
+def oc_svm(data, mal_percent, scores=False, save=False, load=False, filename=Path('./trained-model/oc-svm.pkl'), graph=None):
     '''
     Use a One-Class Support Vector Machine to classify malware and benign TLS traffic based
     on metadata gathered during the client/server handshake.
@@ -236,13 +236,13 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, graph=None, 
     nu_value = (mal_percent / 100) * test_percent
     gamma_val = 0.1
     label = 'malware_label'
-    model_file = r'trained-model\oc_svm.pkl'
 
-    # Feature reduction to 2 components required for margin and boundary graphs
-    # OC-SVM does not graph well using any of the attempted feature reduction techniques.
-    # I attempted PCA, Autoencoder, T-SNE, UMAP, Factor Analysis, Random Forest. The PCA
-    # and AE are left below merely for reference.
-    #if feature_reduce:
+    #if graph == 'margin' or graph == 'boundary':
+        # Feature reduction to 2 components required for margin and boundary graphs
+        # OC-SVM does not graph well using any of the attempted feature reduction techniques.
+        # I attempted PCA, Autoencoder, T-SNE, UMAP, Factor Analysis, Random Forest. The PCA
+        # and AE are left below merely for reference.
+
         #label_data = data.malware_label
         #feature_data = data.drop(label, axis=1)
 
@@ -267,9 +267,9 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, graph=None, 
 
     # Laod model from file
     if load:
-        svclassifier = import_model(model_file)
+        svclassifier = import_model(filename)
         oc_test = data.drop(label, axis=1)
-        oc_test_label = data.malware_label
+        oc_test_label = data[label]
 
     # Train model
     else:
@@ -288,10 +288,11 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, graph=None, 
 
         # Save model to file
         if save:
-            save_model(svclassifier, model_file)
+            save_model(svclassifier, filename)
 
     # Perform n-fold cross validation and calculate the mean score across the cv=## folds
     if scores:
+        print('\nCalculating OC-SVM scores...')
         for val in ['accuracy', 'precision', 'recall']:
             score = cross_val_score(svclassifier, oc_test, oc_test_label, cv=10, scoring=val).mean()
             print("{}: {}".format(val, score))
@@ -308,7 +309,7 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, graph=None, 
     elif graph:
         create_graph(oc_pred, oc_test_label, graph, svclassifier, occ=True)
 
-def ae(data, scores=False, save=False, load=False, graph=None):
+def ae(data, scores=False, save=False, load=False, filename=Path('./trained-model/ae.h5'), graph=None):
     '''
     Use an Autoencoder Neural Network to classify malware and benign TLS traffic based
     on metadata gathered during the client/server handshake.
@@ -319,14 +320,13 @@ def ae(data, scores=False, save=False, load=False, graph=None):
     BATCH_SIZE=32
     label = 'malware_label'
     act_func = 'elu'
-    model_file = r'trained-model\ae_classifier.h5'
     label_data = data.malware_label
 
     # Laod model from file
     if load:
         data = data.drop(label, axis=1)
 
-        model = import_model(model_file, True)
+        model = import_model(filename, True)
         predictions = model.predict(np.array(data))
         predictions = pd.DataFrame(predictions, columns=data.columns)
         predictions.index = data.index
@@ -379,11 +379,11 @@ def ae(data, scores=False, save=False, load=False, graph=None):
                         batch_size=BATCH_SIZE, 
                         epochs=NUM_EPOCHS,
                         validation_split=0.05,
-                        verbose = 1)
+                        verbose = 0)
 
         # Save model to file
         if save:
-            save_model(model, model_file, True)
+            save_model(model, filename, True)
 
         predictions = model.predict(np.array(x_test))
         predictions = pd.DataFrame(predictions, 
@@ -414,6 +414,7 @@ def ae(data, scores=False, save=False, load=False, graph=None):
     # Cross_val_score does not support AE model, so we calculate scores individually
     # Did not find a suitable method of N-fold cross validation...
     if scores:
+        print('\nPrinting Autoencoder scores...')
         print('Accuracy: {}'.format(accuracy_score(label_data, scored['Anomaly'])))
         print('Precision: {}'.format(precision_score(label_data, scored['Anomaly'])))
         print('Recall: {}'.format(recall_score(label_data, scored['Anomaly'])))
@@ -432,7 +433,7 @@ def ae(data, scores=False, save=False, load=False, graph=None):
 
 def get_data(sample_size, mal_percent=20, test_percent=20, occ=False):
     rand_state_val = 42
-    csv_data_file = r'test-train-data\test_train_data.csv'
+    csv_data_file = Path('./test-train-data/test_train_data.csv')
     full_dataset = pd.read_csv(csv_data_file)
 
     # Scale data to 0-1 value for more efficient ML analysis
@@ -494,3 +495,94 @@ def get_data(sample_size, mal_percent=20, test_percent=20, occ=False):
     sampled_data = sampled_data.sample(frac=1).reset_index(drop=True)
 
     return sampled_data
+
+def main():
+    '''
+    Execute above functions and run through the various ML models outlined in the paper:
+        Malware Detection in Encrypted TLS Traffic Through Machine Learning
+    '''
+
+    parser = ArgumentParser(description='Run an ML model to analyse TLS data for malicious activity.',
+                            formatter_class=RawTextHelpFormatter)
+    parser.add_argument('-d', '--data', action='store', dest='data_size', default=0,
+                        help='Data sample size to analyze', type=int, required=True)
+    parser.add_argument('-m', '--malware', action='store', dest='malware_size', default=20,
+                        help='Percentage of dataset that is Malware', type=float, required=False)
+    parser.add_argument('-t', '--test', action='store', dest='test_size', default=20,
+                        help='Percentage of dataset to use for validation', type=float, required=False)
+    parser.add_argument('-o', '--model', action='store', dest='ml_model', 
+                        help='''Machine Learning model to use. Acceptable values are:
+- ae = Autoencoder
+- svm = Support Vector Machine
+- oc-svm = One-Class SVM''',
+                        required=False)
+    parser.add_argument('-s', '--save', action='store_true', dest='save_model', default=False,
+                        help='Save the trained model - REQUIRES the -f/--file option', required=False)
+    parser.add_argument('-l', '--load', action='store_true', dest='load_model', default=False,
+                        help='Evaluate data against a trained model - REQUIRES the -f/--file option', required=False)
+    parser.add_argument('-f', '--file', action='store', dest='file', default=None,
+                        help='Save/Load file path', required=False)
+    parser.add_argument('-c', '--scores', action='store_true', dest='scores', default=False,
+                        help='Print 10-fold cross-validated Accuracy, Recall, Precision, and F2 scores', required=False)
+    parser.add_argument('-g', '--graph', action='store', dest='graph', default=None,
+                        help='''Visualize the modeled dataset. Acceptable values are:
+SVM and OC-SVM graphs:
+    - confusion
+    - margin
+    - boundary
+    - auc
+Autoencoder graphs:
+    - confusion
+    - loss
+    - mae
+    - thresh
+    - scatter''',
+                        required=False)
+    parser.add_argument('-p', '--print', action='store_true', dest='print_data', default=False,
+                        help='Print dataset', required=False)
+
+    options = parser.parse_args()
+
+    if (options.save_model or options.load_model) and not options.file:
+        print('If you want to save or load a model, you must also use the -f or\n--file option and provide the location of the file.')
+        quit()
+
+    data_size = options.data_size
+    malware_size = options.malware_size
+    test_size = options.test_size
+    save = options.save_model
+    load = options.load_model   
+    scores = options.scores
+    graph = options.graph
+    print_data = options.print_data
+    model = options.ml_model
+
+    if graph == 'oc-svm':
+        occ = True
+    else:
+        occ = False
+
+    filename = Path(options.file) if options.file else None
+    
+    if load and not filename.exists():
+        print('\n The file {} cannot be found... Please check your spelling and try again'.format(filename))
+        quit()
+
+    dataset = get_data(data_size, malware_size, test_size, occ)
+
+    if print_data:
+        print(dataset)
+    
+    if model == 'ae':
+        ae(dataset, scores, save, load, filename, graph)
+    elif model == 'svm':
+        svm(dataset, scores, save, load, filename, graph=graph)
+    elif model == 'oc-svm':
+        oc_svm(dataset, malware_size, scores, save, load, filename, graph)
+    elif model:
+        print('\nPlease choose a model of type ae, svm, or oc-svm... To get help using this script use the -h or --help option')
+        quit()
+
+if __name__ == '__main__':
+    main()
+

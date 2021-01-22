@@ -1,0 +1,3 @@
+tranco==0.5
+dgaintel==2.3
+OTXv2==1.5.10
