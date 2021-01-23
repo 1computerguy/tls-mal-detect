@@ -22,7 +22,7 @@ from tensorflow.keras import regularizers
 from tensorflow.random import set_seed
 from numpy.random import seed
 
-def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_data=None):
+def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_data=None, export=False, graph_file=Path('./graph/graph.png')):
     '''
     Graph an ML model's training or analysis output to visualize its efficacy and functionality
         - ae and label_data arguments are used to signify Autoencoder graphs
@@ -128,7 +128,10 @@ def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_d
         sns.scatterplot( x=x_data.index, y='Loss_mae', data=x_data, palette='plasma', hue='Anomaly')
         plt.axhline(y=y_data)
 
-    plt.show()
+    if export:
+        plt.save(graph_file)
+    else:
+        plt.show()
 
 def f_beta(beta, precision, recall):
     '''
@@ -175,7 +178,7 @@ def AE_threshold(train_dist, pred_dist, extreme=False):
     threshold = np.abs(pred_thresh - train_thresh) * k
     return threshold
 
-def svm(data, scores=False, save=False, load=False, filename=Path('./trained-model/svm.pkl'), graph=None):
+def svm(data, scores=False, save=False, load=False, filename=Path('./models/svm.pkl'), graph=None, graph_file=None:
     '''
     Use a Support Vector Machine to classify malware and benign TLS traffic based on metadata
     gathered during the client/server handshake.
@@ -219,14 +222,16 @@ def svm(data, scores=False, save=False, load=False, filename=Path('./trained-mod
 
     svm_pred = svclassifier.predict(feature_test)
 
+    export = True if graph_file else False
+
     if graph == 'margin' or graph == 'boundary':
-        create_graph(tt_features, tt_labels, graph, svclassifier)
+        create_graph(tt_features, tt_labels, graph, svclassifier, export, graph_file)
     elif graph:
-        create_graph(svm_pred, label_test, graph)
+        create_graph(svm_pred, label_test, graph, export, graph_file)
 
     #return svm_pred, tt_labels
 
-def oc_svm(data, mal_percent, scores=False, save=False, load=False, filename=Path('./trained-model/oc-svm.pkl'), graph=None):
+def oc_svm(data, mal_percent, scores=False, save=False, load=False, filename=Path('./models/oc-svm.pkl'), graph=None, graph_file=None):
     '''
     Use a One-Class Support Vector Machine to classify malware and benign TLS traffic based
     on metadata gathered during the client/server handshake.
@@ -304,12 +309,18 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, filename=Pat
         
     oc_pred = svclassifier.predict(oc_test)
 
-    if graph == 'margin' or graph == 'boundary':
-        create_graph(oc_test, oc_test_label, graph, svclassifier)
-    elif graph:
-        create_graph(oc_pred, oc_test_label, graph, svclassifier, occ=True)
+    export = True if graph_file else False
 
-def ae(data, scores=False, save=False, load=False, filename=Path('./trained-model/ae.h5'), graph=None):
+    # You can uncomment the below if statement (and change the second if graph to an elif graph)
+    # ONLY if you enable one of the feature reduction techniques above - either PCA or the AE
+    #if graph == 'margin' or graph == 'boundary':
+    #    create_graph(oc_test, oc_test_label, graph, svclassifier, export, graph_file)
+    if graph == 'confusion' or graph == 'auc':
+        create_graph(oc_pred, oc_test_label, graph, svclassifier, occ=True, export, graph_file)
+    else:
+        print('You need to uncomment one of the feature reduction techniques in this function to use that graph type...')
+
+def ae(data, scores=False, save=False, load=False, filename=Path('./models/ae.h5'), graph=None, graph_file=None):
     '''
     Use an Autoencoder Neural Network to classify malware and benign TLS traffic based
     on metadata gathered during the client/server handshake.
@@ -419,17 +430,18 @@ def ae(data, scores=False, save=False, load=False, filename=Path('./trained-mode
         print('Precision: {}'.format(precision_score(label_data, scored['Anomaly'])))
         print('Recall: {}'.format(recall_score(label_data, scored['Anomaly'])))
         print('F2 Score: {}'.format(fbeta_score(label_data, scored['Anomaly'], beta=2.0)))
-    
+
+    export = True if graph_file else False
     if graph == 'loss':
-        create_graph(history.history['loss'], history.history['val_loss'], graph)
+        create_graph(history.history['loss'], history.history['val_loss'], graph, export, graph_file)
     elif graph == 'scatter':
         create_graph(scored, threshold, graph, model)
     elif graph == 'confusion':
-        create_graph(scored, threshold, graph, ae=True, label_data=label_data)
+        create_graph(scored, threshold, graph, ae=True, label_data=label_data, export, graph_file)
     elif graph == 'mae':
-        create_graph(x_train, label_data, graph, model)
+        create_graph(x_train, label_data, graph, model, export, graph_file)
     elif graph:
-        create_graph(scored, label_data, graph, model)
+        create_graph(scored, label_data, graph, model, export, graph_file)
 
 def get_data(sample_size, mal_percent=20, test_percent=20, occ=False):
     rand_state_val = 42
@@ -522,14 +534,14 @@ def main():
                         help='Evaluate data against a trained model - REQUIRES the -f/--file option', required=False)
     parser.add_argument('-f', '--file', action='store', dest='file', default=None,
                         help='Save/Load file path', required=False)
-    parser.add_argument('-c', '--scores', action='store_true', dest='scores', default=False,
+    parser.add_argument('-r', '--scores', action='store_true', dest='scores', default=False,
                         help='Print 10-fold cross-validated Accuracy, Recall, Precision, and F2 scores', required=False)
     parser.add_argument('-g', '--graph', action='store', dest='graph', default=None,
                         help='''Visualize the modeled dataset. Acceptable values are:
 SVM and OC-SVM graphs:
     - confusion
-    - margin
-    - boundary
+    - margin (SVM only)
+    - boundary (SVM only)
     - auc
 Autoencoder graphs:
     - confusion
@@ -540,6 +552,8 @@ Autoencoder graphs:
                         required=False)
     parser.add_argument('-p', '--print', action='store_true', dest='print_data', default=False,
                         help='Print dataset', required=False)
+    parser.add_argument('-e', '--export', action='store_true', dest='export', default=False,
+                        help='This will save the graph to a file - REQUIRED if running in a container', required=False)
 
     options = parser.parse_args()
 
@@ -556,14 +570,13 @@ Autoencoder graphs:
     graph = options.graph
     print_data = options.print_data
     model = options.ml_model
+    export_graph = options.export
 
-    if graph == 'oc-svm':
-        occ = True
-    else:
-        occ = False
-
+    occ = True if model == 'oc-svm' else False
     filename = Path(options.file) if options.file else None
     
+    graph_file = Path('/detect/graph/{}-{}.png'.format(model, graph)) if export_graph else None
+
     if load and not filename.exists():
         print('\n The file {} cannot be found... Please check your spelling and try again'.format(filename))
         quit()
@@ -574,11 +587,11 @@ Autoencoder graphs:
         print(dataset)
     
     if model == 'ae':
-        ae(dataset, scores, save, load, filename, graph)
+        ae(dataset, scores, save, load, filename, graph, graph_file)
     elif model == 'svm':
-        svm(dataset, scores, save, load, filename, graph=graph)
+        svm(dataset, scores, save, load, filename, graph, graph_file)
     elif model == 'oc-svm':
-        oc_svm(dataset, malware_size, scores, save, load, filename, graph)
+        oc_svm(dataset, malware_size, scores, save, load, filename, graph, graph_file)
     elif model:
         print('\nPlease choose a model of type ae, svm, or oc-svm... To get help using this script use the -h or --help option')
         quit()

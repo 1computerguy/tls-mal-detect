@@ -4,3 +4,4 @@ pandas==0.25.3
 tensorflow==2.3.2
 seaborn
 matplotlib
+mlxtend
