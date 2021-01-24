@@ -130,3 +130,9 @@ Run the Autoencoder and open the Confusion Matrix graph
 ```
 python3 anomaly-detect.py -d 25000 -m 5 --model ae --graph confusion
 ```
+
+Run the SVM and save the margin graph to disk
+
+```
+python3 anomaly-detect.py -d 25000 -m 20 --model svm --graph margin --export
+```
