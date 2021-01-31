@@ -178,7 +178,7 @@ def AE_threshold(train_dist, pred_dist, extreme=False):
     threshold = np.abs(pred_thresh - train_thresh) * k
     return threshold
 
-def svm(data, scores=False, save=False, load=False, filename=Path('./models/svm.pkl'), graph=None, graph_file=None:
+def svm(data, scores=False, save=False, load=False, filename=Path('./models/svm.pkl'), graph=None, graph_file=None):
     '''
     Use a Support Vector Machine to classify malware and benign TLS traffic based on metadata
     gathered during the client/server handshake.
