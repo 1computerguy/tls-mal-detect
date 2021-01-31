@@ -316,7 +316,7 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, filename=Pat
     #if graph == 'margin' or graph == 'boundary':
     #    create_graph(oc_test, oc_test_label, graph, svclassifier, export, graph_file)
     if graph == 'confusion' or graph == 'auc':
-        create_graph(oc_pred, oc_test_label, graph, svclassifier, occ=True, export, graph_file)
+        create_graph(oc_pred, oc_test_label, graph, svclassifier, export, graph_file, occ=True)
     else:
         print('You need to uncomment one of the feature reduction techniques in this function to use that graph type...')
 
@@ -437,7 +437,7 @@ def ae(data, scores=False, save=False, load=False, filename=Path('./models/ae.h5
     elif graph == 'scatter':
         create_graph(scored, threshold, graph, model)
     elif graph == 'confusion':
-        create_graph(scored, threshold, graph, ae=True, label_data=label_data, export, graph_file)
+        create_graph(scored, threshold, graph, export, graph_file, ae=True, label_data=label_data)
     elif graph == 'mae':
         create_graph(x_train, label_data, graph, model, export, graph_file)
     elif graph:
