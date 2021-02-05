@@ -33,9 +33,7 @@ docker run --rm -it tls-mal-detect
 
 The `docker run` command above will provide the script help documentation below:
 ```
-usage: anomaly-detect.py [-h] -d DATA_SIZE [-m MALWARE_SIZE] [-t TEST_SIZE]
-                         [-o ML_MODEL] [-s] [-l] [-f FILE] [-c] [-g GRAPH]
-                         [-p]
+usage: anomaly-detect.py [-h] -d DATA_SIZE [-m MALWARE_SIZE] [-t TEST_SIZE] [-o ML_MODEL] [-s] [-l] [-f FILE] [-r] [-g GRAPH] [-p] [-e]
 
 Run an ML model to analyse TLS data for malicious activity.
 
@@ -55,13 +53,13 @@ optional arguments:
   -s, --save            Save the trained model - REQUIRES the -f/--file option
   -l, --load            Evaluate data against a trained model - REQUIRES the -f/--file option
   -f FILE, --file FILE  Save/Load file path
-  -c, --scores          Print 10-fold cross-validated Accuracy, Recall, Precision, and F2 scores
+  -r, --scores          Print 10-fold cross-validated Accuracy, Recall, Precision, and F2 scores
   -g GRAPH, --graph GRAPH
                         Visualize the modeled dataset. Acceptable values are:
                         SVM and OC-SVM graphs:
                             - confusion
-                            - margin
-                            - boundary
+                            - margin (SVM only)
+                            - boundary (SVM only)
                             - auc
                         Autoencoder graphs:
                             - confusion
@@ -70,6 +68,7 @@ optional arguments:
                             - thresh
                             - scatter
   -p, --print           Print dataset
+  -e, --export          This will save the graph to a file - REQUIRED if running in a container
 ```
 
 ---
