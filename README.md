@@ -5,8 +5,8 @@ Using machine learning to detect malware in encrypted TLS traffic metadata
 ![Linux](https://img.shields.io/badge/Supports-Linux-green.svg)
 ![Windows](https://img.shields.io/badge/Supports-Windows-green.svg)
 ![Docker](https://img.shields.io/badge/Supports-Docker-red.svg)
-![Python: v3.6](https://img.shields.io/badge/Python-3.6-blue.svg)
-[![Python: Reference](https://img.shields.io/badge/Python-Reference-blue.svg)](https://docs.python.org/3.9/)
+![Python: v3.8](https://img.shields.io/badge/Python-3.8-blue.svg)
+[![Python: Reference](https://img.shields.io/badge/Python-Reference-blue.svg)](https://docs.python.org/3.8/)
 ---
 
 The purpose of this repository is to evaluate multiple machine learning algorithms and demonstrate their ability to accurately classify malicious traffic. Three models were used in this research, a One-Class Support Vector Machine, a Support Vector Machine, and an Autoencoder Neural Network. This repository is supplied as a part of a research assignment in support of my Master's of Science in Information Security Engineering from SANS Technology Institute entitled *Malware Detection in Encrypted TLS Traffic Through Machine Learning*.
