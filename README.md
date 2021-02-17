@@ -14,6 +14,7 @@ The purpose of this repository is to evaluate multiple machine learning algorith
 Visit the accompanying Jupyter Notebook Repo to step through a basic demonstration of some of the data analysis and one of the ML models used in this research.
 
 [TLS-Mal-Detect Jupyter Repository](https://github.com/1computerguy/tls-mal-detect-jupyter)
+
 [TLS-Mal-Detect Jupyter Notebook Binder](https://notebooks.gesis.org/binder/v2/gh/1computerguy/tls-mal-detect-jupyter/HEAD?filepath=anomaly-detect.ipynb)
 
 ---
