@@ -59,8 +59,8 @@ def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_d
 
         plt.scatter(x_data[:, 0], x_data[:, 1], c=y_data.values, s=30, cmap=plt.cm.winter, alpha=0.5)
         ax = plt.gca()
-        xlim = [-15, 15]
-        ylim = [-15, 15]
+        xlim = [-8, 6]
+        ylim = [-3, 3]
         xx = np.linspace(xlim[0], xlim[1], 30)
         yy = np.linspace(ylim[0], ylim[1], 30)
         XX, YY = np.meshgrid(yy, xx)
@@ -129,7 +129,7 @@ def create_graph(x_data, y_data, graph, model=None, ae=False, occ=False, label_d
         plt.axhline(y=y_data)
 
     if export:
-        plt.save(graph_file)
+        plt.savefig(graph_file)
     else:
         plt.show()
 
@@ -176,6 +176,7 @@ def AE_threshold(train_dist, pred_dist, extreme=False):
     train_thresh = np.mean(np.mean(np.abs(train_dist), axis = 1))
     pred_thresh = np.mean(np.mean(np.abs(pred_dist), axis = 1))
     threshold = np.abs(pred_thresh - train_thresh) * k
+    
     return threshold
 
 def svm(data, scores=False, save=False, load=False, filename=Path('./models/svm.pkl'), graph=None, graph_file=None):
@@ -221,16 +222,15 @@ def svm(data, scores=False, save=False, load=False, filename=Path('./models/svm.
         print("F2 Score: {}".format(f_beta(2.0, prec, rec)))
 
     svm_pred = svclassifier.predict(feature_test)
+    print(svm_pred)
 
     export = True if graph_file else False
 
     if graph == 'margin' or graph == 'boundary':
-        create_graph(tt_features, tt_labels, graph, svclassifier, export, graph_file)
+        create_graph(tt_features, tt_labels, graph, svclassifier, export=export, graph_file=graph_file)
     elif graph:
-        create_graph(svm_pred, label_test, graph, export, graph_file)
-
-    #return svm_pred, tt_labels
-
+        create_graph(svm_pred, label_test, graph, export=export, graph_file=graph_file)
+ 
 def oc_svm(data, mal_percent, scores=False, save=False, load=False, filename=Path('./models/oc-svm.pkl'), graph=None, graph_file=None):
     '''
     Use a One-Class Support Vector Machine to classify malware and benign TLS traffic based
@@ -299,7 +299,7 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, filename=Pat
     if scores:
         print('\nCalculating OC-SVM scores...')
         for val in ['accuracy', 'precision', 'recall']:
-            score = cross_val_score(svclassifier, oc_test, oc_test_label, cv=10, scoring=val).mean()
+            score = cross_val_score(svclassifier, oc_test, oc_test_label, cv=2, scoring=val).mean()
             print("{}: {}".format(val, score))
             if val == 'precision':
                 prec = score
@@ -316,7 +316,7 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, filename=Pat
     #if graph == 'margin' or graph == 'boundary':
     #    create_graph(oc_test, oc_test_label, graph, svclassifier, export, graph_file)
     if graph == 'confusion' or graph == 'auc':
-        create_graph(oc_pred, oc_test_label, graph, svclassifier, export, graph_file, occ=True)
+        create_graph(oc_pred, oc_test_label, graph, svclassifier, export=export, graph_file=graph_file, occ=True)
     else:
         print('You need to uncomment one of the feature reduction techniques in this function to use that graph type...')
 
@@ -432,16 +432,17 @@ def ae(data, scores=False, save=False, load=False, filename=Path('./models/ae.h5
         print('F2 Score: {}'.format(fbeta_score(label_data, scored['Anomaly'], beta=2.0)))
 
     export = True if graph_file else False
+
     if graph == 'loss':
-        create_graph(history.history['loss'], history.history['val_loss'], graph, export, graph_file)
+        create_graph(history.history['loss'], history.history['val_loss'], graph, export=export, graph_file=graph_file)
     elif graph == 'scatter':
-        create_graph(scored, threshold, graph, model)
+        create_graph(scored, threshold, graph, model, export=export, graph_file=graph_file)
     elif graph == 'confusion':
-        create_graph(scored, threshold, graph, export, graph_file, ae=True, label_data=label_data)
+        create_graph(scored, threshold, graph, export=export, graph_file=graph_file, ae=True, label_data=label_data)
     elif graph == 'mae':
-        create_graph(x_train, label_data, graph, model, export, graph_file)
+        create_graph(x_train, label_data, graph, model, export=export, graph_file=graph_file)
     elif graph:
-        create_graph(scored, label_data, graph, model, export, graph_file)
+        create_graph(scored, label_data, graph, model, export=export, graph_file=graph_file)
 
 def get_data(sample_size, mal_percent=20, test_percent=20, occ=False):
     rand_state_val = 42
@@ -575,7 +576,8 @@ Autoencoder graphs:
     occ = True if model == 'oc-svm' else False
     filename = Path(options.file) if options.file else None
     
-    graph_file = Path('/detect/graph/{}-{}.png'.format(model, graph)) if export_graph else None
+    #graph_file = Path('/detect/graph/{}-{}.png'.format(model, graph)) if export_graph else None
+    graph_file = Path('/mnt/c/Users/bryan/Desktop/{}-{}.png'.format(model, graph)) if export_graph else None
 
     if load and not filename.exists():
         print('\n The file {} cannot be found... Please check your spelling and try again'.format(filename))
