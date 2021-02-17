@@ -11,6 +11,11 @@ Using machine learning to detect malware in encrypted TLS traffic metadata
 
 The purpose of this repository is to evaluate multiple machine learning algorithms and demonstrate their ability to accurately classify malicious traffic. Three models were used in this research, a One-Class Support Vector Machine, a Support Vector Machine, and an Autoencoder Neural Network. This repository is supplied as a part of a research assignment in support of my Master's of Science in Information Security Engineering from SANS Technology Institute entitled *Malware Detection in Encrypted TLS Traffic Through Machine Learning*.
 
+Visit the accompanying Jupyter Notebook Repo to step through a basic demonstration of some of the data analysis and one of the ML models used in this research.
+
+[TLS-Mal-Detect Jupyter Repository](https://github.com/1computerguy/tls-mal-detect-jupyter)
+[TLS-Mal-Detect Jupyter Notebook Binder](https://notebooks.gesis.org/binder/v2/gh/1computerguy/tls-mal-detect-jupyter/HEAD?filepath=anomaly-detect.ipynb)
+
 ---
 
 > NOTE: If you decide to use this program with Windows, there are issues with pathlib. It works best if you convert the pathlib paths to raw strings.
