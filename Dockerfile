@@ -14,8 +14,5 @@ COPY ./models/* /detect/models/
 WORKDIR /detect
 
 ENTRYPOINT [ "python3", "/detect/anomaly-detect.py", "--export" ]
-<<<<<<< HEAD
+
 CMD [ "-h" ]
-=======
-CMD [ "-h" ]
->>>>>>> origin/research_paper
