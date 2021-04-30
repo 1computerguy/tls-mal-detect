@@ -222,12 +222,13 @@ def svm(data, scores=False, save=False, load=False, filename=Path('./models/svm.
         print("F2 Score: {}".format(f_beta(2.0, prec, rec)))
 
     svm_pred = svclassifier.predict(feature_test)
-    print(svm_pred)
 
     export = True if graph_file else False
 
     if graph == 'margin' or graph == 'boundary':
         create_graph(tt_features, tt_labels, graph, svclassifier, export=export, graph_file=graph_file)
+    elif graph == 'loss' or graph == 'scatter' or graph == 'mae':
+        print('These graphs do not apply to this ML model. Try the Autoencoder to view them.')
     elif graph:
         create_graph(svm_pred, label_test, graph, export=export, graph_file=graph_file)
  
@@ -317,8 +318,10 @@ def oc_svm(data, mal_percent, scores=False, save=False, load=False, filename=Pat
     #    create_graph(oc_test, oc_test_label, graph, svclassifier, export, graph_file)
     if graph == 'confusion' or graph == 'auc':
         create_graph(oc_pred, oc_test_label, graph, svclassifier, export=export, graph_file=graph_file, occ=True)
-    else:
+    elif graph == 'margin' or graph == 'boundary':
         print('You need to uncomment one of the feature reduction techniques in this function to use that graph type...')
+    elif graph == 'loss' or graph == 'scatter' or graph == 'mae':
+        print('These graphs do not apply to this ML model. Try the Autoencoder to view them.')
 
 def ae(data, scores=False, save=False, load=False, filename=Path('./models/ae.h5'), graph=None, graph_file=None):
     '''
@@ -390,7 +393,7 @@ def ae(data, scores=False, save=False, load=False, filename=Path('./models/ae.h5
                         batch_size=BATCH_SIZE, 
                         epochs=NUM_EPOCHS,
                         validation_split=0.05,
-                        verbose = 0)
+                        verbose = 1)
 
         # Save model to file
         if save:
@@ -444,9 +447,8 @@ def ae(data, scores=False, save=False, load=False, filename=Path('./models/ae.h5
     elif graph:
         create_graph(scored, label_data, graph, model, export=export, graph_file=graph_file)
 
-def get_data(sample_size, mal_percent=20, test_percent=20, occ=False):
+def get_data(csv_data_file, sample_size, mal_percent=20, test_percent=20, occ=False):
     rand_state_val = 42
-    csv_data_file = Path('./test-train-data/test_train_data.csv')
     full_dataset = pd.read_csv(csv_data_file)
 
     # Scale data to 0-1 value for more efficient ML analysis
@@ -555,6 +557,8 @@ Autoencoder graphs:
                         help='Print dataset', required=False)
     parser.add_argument('-e', '--export', action='store_true', dest='export', default=False,
                         help='This will save the graph to a file - REQUIRED if running in a container', required=False)
+    parser.add_argument('-c', '--csv', action='store', dest='csv_file',
+                        help='Location of the CSV Data file', required=False)
 
     options = parser.parse_args()
 
@@ -572,18 +576,25 @@ Autoencoder graphs:
     print_data = options.print_data
     model = options.ml_model
     export_graph = options.export
+    csv_file = options.csv_file
 
     occ = True if model == 'oc-svm' else False
     filename = Path(options.file) if options.file else None
     
-    #graph_file = Path('/detect/graph/{}-{}.png'.format(model, graph)) if export_graph else None
-    graph_file = Path('/mnt/c/Users/bryan/Desktop/{}-{}.png'.format(model, graph)) if export_graph else None
+    docker = os.environ.get('RUNNING_IN_DOCKER', False)
+
+    if docker:
+        graph_file = Path('/detect/graph/{}-{}.png'.format(model, graph)) if export_graph else None
+        csv_file = Path('/detect/data/test_train_data.csv') if not csv_file else csv_file
+    else:
+        graph_file = Path('./graph/{}-{}.png'.format(model, graph)) if export_graph else None
+        csv_file = Path('./test-train-data/test_train_data.csv') if not csv_file else csv_file   
 
     if load and not filename.exists():
         print('\n The file {} cannot be found... Please check your spelling and try again'.format(filename))
         quit()
 
-    dataset = get_data(data_size, malware_size, test_size, occ)
+    dataset = get_data(csv_file, data_size, malware_size, test_size, occ)
 
     if print_data:
         print(dataset)
