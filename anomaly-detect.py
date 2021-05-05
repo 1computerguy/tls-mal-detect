@@ -581,7 +581,7 @@ Autoencoder graphs:
     occ = True if model == 'oc-svm' else False
     filename = Path(options.file) if options.file else None
     
-    docker = os.environ.get('RUNNING_IN_DOCKER', False)
+    docker = bool(os.environ.get('RUNNING_IN_DOCKER', False))
 
     if docker:
         graph_file = Path('/detect/graph/{}-{}.png'.format(model, graph)) if export_graph else None
