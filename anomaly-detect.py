@@ -588,7 +588,7 @@ Autoencoder graphs:
         csv_file = Path('/detect/data/test_train_data.csv') if not csv_file else csv_file
     else:
         graph_file = Path('./graph/{}-{}.png'.format(model, graph)) if export_graph else None
-        csv_file = Path('./test-train-data/test_train_data.csv') if not csv_file else csv_file   
+        csv_file = Path('./test-train-data/test_train_data.csv') if not csv_file else csv_file
 
     if load and not filename.exists():
         print('\n The file {} cannot be found... Please check your spelling and try again'.format(filename))

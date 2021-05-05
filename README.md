@@ -39,7 +39,9 @@ docker run --rm -it tls-mal-detect
 
 The `docker run` command above will provide the script help documentation below:
 ```
-usage: anomaly-detect.py [-h] -d DATA_SIZE [-m MALWARE_SIZE] [-t TEST_SIZE] [-o ML_MODEL] [-s] [-l] [-f FILE] [-r] [-g GRAPH] [-p] [-e]
+usage: anomaly-detect.py [-h] -d DATA_SIZE [-m MALWARE_SIZE] [-t TEST_SIZE]
+                         [-o ML_MODEL] [-s] [-l] [-f FILE] [-r] [-g GRAPH]
+                         [-p] [-e] [-c CSV_FILE]
 
 Run an ML model to analyse TLS data for malicious activity.
 
@@ -75,6 +77,8 @@ optional arguments:
                             - scatter
   -p, --print           Print dataset
   -e, --export          This will save the graph to a file - REQUIRED if running in a container
+  -c CSV_FILE, --csv CSV_FILE
+                        Location of the CSV Data file
 ```
 
 ---
@@ -91,13 +95,13 @@ docker run --rm -it tls-mal-detect -d 25000 -m 1 --model oc-svm --scores
 Run the SVM using the pre-saved model
 
 ```
-docker run --rm -it tls-mal-detect -d 50000 -m 20 --model svm --scores --load --file /detect/models/svm.pkl
+docker run --rm -it tls-mal-detect -d 5000 -m 20 --model svm --scores --load --file /detect/models/svm.pkl
 ```
 
 Run the Autoencoder and export the Confusion Matrix graph as a .png file to the current working directory of the host or VM
 
 ```
-docker run --rm -it -v $(pwd):/detect/graph dtls-mal-detect -d 25000 -m 5 --model ae --graph confusion
+docker run --rm -it -v $(pwd):/detect/graph tls-mal-detect -d 25000 -m 5 --model ae --graph confusion
 ```
 
 ---
